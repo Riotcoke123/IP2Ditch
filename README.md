@@ -89,9 +89,6 @@ mkdir static</code></pre>
         <li><code>UPLOAD_TIMEOUT</code>: Timeout in seconds specifically for uploading files to FileDitch.</li>
         <li><code>PROCESSING_INTERVAL_SECONDS</code>: How often (in seconds) the background thread runs the processing cycle.</li>
     </ul>
-     <div class="warning">
-        <strong>⚠️ Important Security Note:</strong> Do not commit sensitive API keys, secrets, or tokens directly into your Git repository. Use environment variables, a <code>.env</code> file (added to <code>.gitignore</code>), or a dedicated configuration management system.
-    </div>
     <h2>Usage</h2>
     <ol>
         <li>
