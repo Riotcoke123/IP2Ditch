@@ -147,7 +147,8 @@ mkdir static</code></pre>
     </ul>
     <h2>License</h2>
     <p>
-        Please add a <code>LICENSE</code> file to your repository. If you haven't chosen one, the <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">MIT License</a> is a common and permissive option.
+    <code> GNU GENERAL PUBLIC LICENSE
+</code> 
     </p>
 
 </body>
