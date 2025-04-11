@@ -1,14 +1,17 @@
-
 import os
 import json
 import requests
 import logging
 import datetime
 import re
-import time # Added
-import threading # Added
+import time
+import threading
 from flask import Flask, jsonify, request, render_template
-from urllib.parse import urlparse, unquote # Added for better filename parsing
+from urllib.parse import urlparse, unquote
+from dotenv import load_dotenv # <-- Import load_dotenv
+
+# --- Load Environment Variables ---
+load_dotenv() # <-- Load variables from .env file into environment
 
 # --- Configuration ---
 COMMUNITIES_API_URLS = [
@@ -16,7 +19,26 @@ COMMUNITIES_API_URLS = [
     "https://communities.win/api/v2/post/hotv2.json?community=ip2always"
 ]
 
-# WARNING: Hardcoding credentials is insecure. Use environment variables or config files.
+# --- Retrieve Credentials Safely ---
+# Use os.getenv to read environment variables. Provide None as default.
+api_key = os.getenv('COMMUNITIES_API_KEY')
+api_secret = os.getenv('COMMUNITIES_API_SECRET')
+xsrf_token = os.getenv('COMMUNITIES_XSRF_TOKEN')
+
+# --- Check if required variables are set ---
+if not api_key:
+    logging.warning("COMMUNITIES_API_KEY environment variable not set. API calls may fail.")
+    # Depending on requirements, you might want to exit here:
+    # raise ValueError("Missing required environment variable: COMMUNITIES_API_KEY")
+if not api_secret:
+    logging.warning("COMMUNITIES_API_SECRET environment variable not set. API calls may fail.")
+    # raise ValueError("Missing required environment variable: COMMUNITIES_API_SECRET")
+if not xsrf_token:
+    logging.warning("COMMUNITIES_XSRF_TOKEN environment variable not set. API calls may fail.")
+    # raise ValueError("Missing required environment variable: COMMUNITIES_XSRF_TOKEN")
+
+
+# --- Headers using Environment Variables ---
 COMMUNITIES_HEADERS = {
     'accept': 'application/json, text/plain, */*',
     'accept-encoding': 'gzip, deflate, br, zstd',
@@ -30,20 +52,21 @@ COMMUNITIES_HEADERS = {
     'sec-fetch-mode': 'cors',
     'sec-fetch-site': 'same-origin',
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36', # Adjust version if needed
-    'x-api-key': '',
+    'x-api-key': api_key,         # <-- Use variable
     'x-api-platform': 'Scored-Desktop',
-    'x-api-secret': '',
-    'x-xsrf-token': '' # This might expire/change
+    'x-api-secret': api_secret,   # <-- Use variable
+    'x-xsrf-token': xsrf_token    # <-- Use variable (might still expire/change)
 }
 
-FILEDITCH_UPLOAD_URL = "https://up1.fileditch.com/upload.php"
-DATA_FILE_PATH = os.path.join('data.json') # Use your actual path
+# --- Other Configurations ---
+FILEDITCH_UPLOAD_URL = os.getenv('FILEDITCH_UPLOAD_URL', "https://up1.fileditch.com/upload.php") # Example of using default
+DATA_FILE_PATH = os.getenv('DATA_FILE_PATH', 'data.json') # Example using default
 REQUEST_TIMEOUT = 30
 UPLOAD_TIMEOUT = 300
 PROCESSING_INTERVAL_SECONDS = 300 # 5 minutes
 
 # --- Logging Setup ---
-log_format = '%(asctime)s - %(levelname)s - [%(threadName)s] - %(message)s' # Added threadName
+log_format = '%(asctime)s - %(levelname)s - [%(threadName)s] - %(message)s'
 logging.basicConfig(level=logging.INFO, format=log_format, datefmt='%Y-%m-%dT%H:%M:%S%z')
 logging.Formatter.converter = lambda *args: datetime.datetime.now(datetime.timezone.utc).timetuple()
 
@@ -51,17 +74,22 @@ logging.Formatter.converter = lambda *args: datetime.datetime.now(datetime.timez
 app = Flask(__name__)
 
 # --- Thread Safety ---
-data_lock = threading.Lock() # Added lock for file access
+data_lock = threading.Lock()
 
 # --- Helper Functions ---
-
+# (load_data, save_data, fetch_communities_data, upload_to_fileditch functions remain the same)
+# ... (rest of your helper functions) ...
 def load_data(filepath):
     """Loads data from the JSON file. Assumes lock is held."""
+    # Make sure the directory exists *before* trying to open the file
+    dirname = os.path.dirname(filepath)
+    if dirname: # Ensure dirname is not empty (e.g., if filepath is just "data.json")
+        os.makedirs(dirname, exist_ok=True)
+
+    if not os.path.exists(filepath):
+        logging.info(f"Data file {filepath} not found. Starting fresh.")
+        return []
     try:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        if not os.path.exists(filepath):
-            logging.info(f"Data file {filepath} not found. Starting fresh.")
-            return []
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read().strip()
             if not content:
@@ -87,7 +115,11 @@ def load_data(filepath):
 def save_data(filepath, data):
     """Saves data to the JSON file. Assumes lock is held."""
     try:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        # Ensure directory exists before writing temp file
+        dirname = os.path.dirname(filepath)
+        if dirname: # Ensure dirname is not empty
+             os.makedirs(dirname, exist_ok=True)
+
         temp_filepath = filepath + ".tmp"
         with open(temp_filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
@@ -103,9 +135,15 @@ def save_data(filepath, data):
             except Exception as remove_err:
                 logging.error(f"Could not remove temporary file {temp_filepath} after save error: {remove_err}")
 
-
 def fetch_communities_data(api_url):
     """Fetches data from a communities.win API endpoint."""
+    # Check if required headers are present before making the request
+    if not COMMUNITIES_HEADERS.get('x-api-key') or \
+       not COMMUNITIES_HEADERS.get('x-api-secret') or \
+       not COMMUNITIES_HEADERS.get('x-xsrf-token'):
+        logging.error(f"Missing required API credentials in headers for {api_url}. Aborting fetch.")
+        return None
+
     logging.info(f"Attempting to fetch data from: {api_url}")
     try:
         response = requests.get(api_url, headers=COMMUNITIES_HEADERS, timeout=REQUEST_TIMEOUT)
@@ -125,6 +163,8 @@ def fetch_communities_data(api_url):
         logging.error(f"HTTP error occurred for {api_url}: {http_err}")
         if http_err.response is not None:
             logging.error(f"Status Code: {http_err.response.status_code}, Response: {http_err.response.text[:200]}...")
+            if http_err.response.status_code in [401, 403]:
+                 logging.error("Authorization error. Check your API Key/Secret/Token.")
         return None
     except requests.exceptions.RequestException as e:
         logging.error(f"Generic network error fetching data from {api_url}: {e}")
@@ -141,10 +181,11 @@ def upload_to_fileditch(mp4_url):
         logging.info(f"Attempting to download: {mp4_url}")
         # Use a common user-agent for downloading
         download_headers = {
-            'User-Agent': COMMUNITIES_HEADERS.get('user-agent'),
+            'User-Agent': COMMUNITIES_HEADERS.get('user-agent'), # Re-use user agent from main headers
             'Accept': 'video/mp4,video/webm,video/ogg,video/*;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
-            'Referer': mp4_url # Sometimes needed
+            # Sometimes helpful to mimic browser behavior
+            'Referer': COMMUNITIES_HEADERS.get('referer', mp4_url)
         }
         # Use stream=True for potentially large files
         with requests.get(mp4_url, stream=True, timeout=REQUEST_TIMEOUT, headers=download_headers) as r:
@@ -157,7 +198,6 @@ def upload_to_fileditch(mp4_url):
                 # 1. Try Content-Disposition header
                 content_disposition = r.headers.get('content-disposition')
                 if content_disposition:
-                    # Regex to find filename*=UTF-8'' or filename= format
                     fname_match = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)"?', content_disposition, re.IGNORECASE)
                     if fname_match:
                         filename = unquote(fname_match.group(1)) # Decode URL encoding
@@ -174,23 +214,29 @@ def upload_to_fileditch(mp4_url):
 
                 # 3. Fallback filename
                 if not filename:
-                    filename = "upload.mp4"
-                    logging.debug(f"Using fallback filename: '{filename}'")
+                    # Generate a slightly more unique fallback using timestamp
+                    ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H%M%S")
+                    filename = f"upload_{ts}.mp4"
+                    logging.debug(f"Using timestamped fallback filename: '{filename}'")
 
                 # Ensure it has a reasonable extension (simple check)
-                if '.' not in filename[-5:]:
-                    filename += ".mp4"
-                    logging.debug(f"Appended .mp4 extension, final filename: '{filename}'")
+                # Make sure it ends with .mp4, even if derived filename didn't
+                if not filename.lower().endswith(('.mp4', '.webm', '.mov', '.avi')): # Allow common video types
+                     base, _ = os.path.splitext(filename)
+                     filename = base + ".mp4"
+                     logging.debug(f"Ensured .mp4 extension, final filename: '{filename}'")
 
             except Exception as e_fname:
                 logging.warning(f"Could not reliably determine filename for {mp4_url}: {e_fname}. Using fallback 'upload.mp4'.")
-                filename = "upload.mp4"
+                filename = "upload.mp4" # Simple fallback if complex logic fails
             # --- End Filename Determination ---
 
             # FileDitch expects 'files[]' as the key for multipart upload
-            files = {'files[]': (filename, r.raw, 'video/mp4')}
+            # Pass r.raw (the raw byte stream) directly to avoid loading large files into memory
+            files = {'files[]': (filename, r.raw, 'video/mp4')} # Assume mp4 for simplicity, could check Content-Type header from download
             logging.info(f"Uploading '{filename}' (from {mp4_url}) to FileDitch...")
 
+            # Increase upload timeout as needed
             upload_response = requests.post(FILEDITCH_UPLOAD_URL, files=files, timeout=UPLOAD_TIMEOUT)
             upload_response.raise_for_status()
 
@@ -214,7 +260,8 @@ def upload_to_fileditch(mp4_url):
                      return None
             else:
                 error_message = upload_data.get("error", "No specific error message provided.")
-                logging.error(f"FileDitch upload failed. Success flag: {upload_data.get('success')}. Error: {error_message}. Full response: {upload_data}")
+                status_code = upload_data.get("status_code", "N/A") # Example if API provides status
+                logging.error(f"FileDitch upload failed. Success: {upload_data.get('success')}, Status Code: {status_code}, Error: {error_message}. Full response: {upload_data}")
                 return None
 
     except requests.exceptions.Timeout:
@@ -238,8 +285,10 @@ def upload_to_fileditch(mp4_url):
         logging.error(f"An unexpected error occurred during upload processing for {mp4_url}: {e}", exc_info=True) # Log traceback
         return None
 
-# --- Core Processing Logic (Extracted) ---
 
+# --- Core Processing Logic (Extracted) ---
+# (_run_processing_cycle function remains the same, but will use the updated fetch/upload functions)
+# ... (rest of your _run_processing_cycle function) ...
 def _run_processing_cycle():
     """
     Internal function to fetch, process, and save data. Handles locking.
@@ -255,7 +304,6 @@ def _run_processing_cycle():
         existing_data = load_data(DATA_FILE_PATH)
         if not isinstance(existing_data, list):
             logging.error("Loaded data is not a list. Aborting processing cycle.")
-            # Still release the lock implicitly via 'with' statement exit
             return False, 0, 0, 0 # Indicate failure
 
         current_total_items = len(existing_data)
@@ -263,21 +311,20 @@ def _run_processing_cycle():
         # Use a set for efficient duplicate checking (title, author tuple)
         existing_post_ids = set()
         for item in existing_data:
-             if isinstance(item, dict):
-                 # Normalize and strip whitespace for comparison
-                 title = item.get('title', '').strip()
-                 author = item.get('author', '').strip()
-                 if title and author:
-                     existing_post_ids.add((title, author))
-                 else:
-                     logging.warning(f"Found item in existing data with missing title or author: {item}")
-             else:
-                 logging.warning(f"Found non-dictionary item in existing data: {item}")
+            if isinstance(item, dict):
+                title = item.get('title', '').strip()
+                author = item.get('author', '').strip()
+                if title and author:
+                    existing_post_ids.add((title, author))
+                else:
+                    logging.warning(f"Found item in existing data with missing title or author: {item}")
+            else:
+                logging.warning(f"Found non-dictionary item in existing data: {item}")
         logging.info(f"Initialized duplicate check set with {len(existing_post_ids)} existing post IDs.")
 
         all_posts_from_apis = []
         for url in COMMUNITIES_API_URLS:
-            data = fetch_communities_data(url)
+            data = fetch_communities_data(url) # Uses updated function with header checks
             if data:
                 posts_list = None
                 # --- Flexible Post List Extraction ---
@@ -286,8 +333,7 @@ def _run_processing_cycle():
                     logging.info(f"Received list ({len(posts_list)} items) directly from {url}")
                 elif isinstance(data, dict):
                     logging.debug(f"Received dictionary from {url}. Looking for posts list...")
-                    # Common keys where post lists might be nested
-                    possible_keys = ['posts', 'data', 'items', 'results', 'threads', 'newPosts', 'hotPosts']
+                    possible_keys = ['posts', 'data', 'items', 'results', 'threads', 'newPosts', 'hotPosts'] # Add more as needed
                     found_key = None
                     for key in possible_keys:
                         potential_list = data.get(key)
@@ -296,10 +342,9 @@ def _run_processing_cycle():
                             found_key = key
                             logging.info(f"Found list ({len(posts_list)} items) under key '{found_key}' in dict response from {url}")
                             break
-                    # Handle case where the root dict *is* the post (less common)
                     if posts_list is None and all(k in data for k in ['title', 'author', 'link']):
-                         logging.info(f"Treating root dictionary from {url} as a single post.")
-                         posts_list = [data]
+                        logging.info(f"Treating root dictionary from {url} as a single post.")
+                        posts_list = [data]
 
                     if posts_list is None:
                          logging.warning(f"Could not find a list of posts under expected keys ({', '.join(possible_keys)}) or as root dict in response from {url}. Keys found: {list(data.keys())}")
@@ -311,7 +356,6 @@ def _run_processing_cycle():
                     valid_posts_count = 0
                     for post in posts_list:
                         if isinstance(post, dict):
-                            # Basic validation: Ensure essential keys exist before adding
                             if all(k in post for k in ['title', 'author', 'link']):
                                 all_posts_from_apis.append(post)
                                 valid_posts_count += 1
@@ -319,21 +363,20 @@ def _run_processing_cycle():
                                 logging.warning(f"Skipping post from {url} missing required keys (title, author, link): {post}")
                         else:
                             logging.warning(f"Skipping non-dictionary item found in list from {url}: {post}")
-                    logging.info(f"Added {valid_posts_count} valid-structured posts from {url} (or nested key) to process queue.")
+                    logging.info(f"Added {valid_posts_count} valid-structured posts from {url} to process queue.")
             else:
                 logging.warning(f"No valid data received or fetched from {url}")
 
         logging.info(f"Total valid posts fetched across all APIs: {len(all_posts_from_apis)}. Processing...")
 
-        items_to_add = [] # Collect new items before modifying existing_data
+        items_to_add = []
 
         for post in all_posts_from_apis:
             processed_api_posts_count += 1
 
-            # Safely get values, defaulting to empty strings
             author = post.get('author', '').strip()
             title = post.get('title', '').strip()
-            link = post.get('link', '') # Don't strip link initially
+            link = post.get('link', '')
 
             if not author:
                 logging.warning(f"Skipping post due to missing or empty author. Data: {post}")
@@ -345,115 +388,132 @@ def _run_processing_cycle():
                 logging.debug(f"Skipping post with missing or non-string link: Title='{title}', Author='{author}'")
                 continue
 
-            # Check if it's an MP4 link (case-insensitive)
-            if link.lower().endswith('.mp4'):
-                post_id_tuple = (title, author) # Use stripped title/author for checking
+            # --- MP4 Processing ---
+            is_mp4_link = False
+            try:
+                # Check extension (more robustly)
+                parsed_link = urlparse(link)
+                path_lower = parsed_link.path.lower()
+                # Allow for query params after extension, e.g., video.mp4?token=...
+                if path_lower.endswith('.mp4') or '.mp4?' in path_lower:
+                    is_mp4_link = True
+                # Add other video extensions if needed:
+                # elif path_lower.endswith('.webm') or '.webm?' in path_lower:
+                #     is_mp4_link = True # Treat other video types similarly if desired
+
+            except Exception as parse_err:
+                logging.warning(f"Error parsing link '{link}' for MP4 check: {parse_err}")
+
+
+            if is_mp4_link:
+                post_id_tuple = (title, author)
 
                 if post_id_tuple in existing_post_ids:
                     logging.debug(f"Skipping already processed/existing MP4 post: Title='{title}', Author='{author}'")
                     continue
 
                 # --- Upload ---
-                fileditch_link = upload_to_fileditch(link)
+                fileditch_link = upload_to_fileditch(link) # Uses updated function
                 # ---------------
 
                 if fileditch_link:
                     new_entry = {
-                        "title": title, # Store original (but stripped) title
-                        "author": author, # Store original (but stripped) author
+                        "title": title,
+                        "author": author,
                         "fileditch_link": fileditch_link,
-                        "original_link": link, # Store original link
+                        "original_link": link,
                     }
                     items_to_add.append(new_entry)
-                    existing_post_ids.add(post_id_tuple) # Add to set to prevent duplicates within this run
+                    existing_post_ids.add(post_id_tuple)
                     new_items_added += 1
                     logging.info(f"Prepared new entry for '{title}' by {author}.")
                 else:
                     logging.warning(f"Failed to upload MP4 for post: Title='{title}', Author='{author}' (Link: {link})")
             else:
-                logging.debug(f"Skipping non-MP4 link: Title='{title}', Author='{author}', Link: {link[:100]}...") # Log only start of long links
+                logging.debug(f"Skipping non-MP4 link: Title='{title}', Author='{author}', Link: {link[:100]}...")
 
         logging.info(f"Checked {processed_api_posts_count} posts fetched from APIs in this cycle.")
 
         if new_items_added > 0:
-            existing_data.extend(items_to_add) # Add all new items at once
+            existing_data.extend(items_to_add)
             logging.info(f"Attempting to save {len(existing_data)} total items ({new_items_added} new) to {DATA_FILE_PATH}")
-            save_data(DATA_FILE_PATH, existing_data)
-            current_total_items = len(existing_data) # Update total count after saving
-            success = True # Assume save worked if no exception
+            save_data(DATA_FILE_PATH, existing_data) # Uses updated function
+            current_total_items = len(existing_data)
+            success = True
         else:
             logging.info("No new MP4 posts found or processed successfully. Data file not modified.")
-            success = True # Still considered a successful cycle, just no changes
+            success = True
 
     # Lock is released here
     return success, new_items_added, current_total_items, processed_api_posts_count
 
 # --- Background Processing Thread ---
-
+# (background_processor function remains the same)
+# ... (rest of your background_processor function) ...
 def background_processor():
     """Target function for the background thread."""
     logging.info("Background processing thread started.")
-    # Optional: Wait a bit before the first run to ensure Flask is up
+    # Optional: Wait a bit before the first run
     # time.sleep(10)
 
     while True:
         try:
             logging.info("Background thread waking up for processing cycle.")
-            with app.app_context(): # Ensure thread has access to Flask app context if needed (e.g., for logging)
-                 success, added, total, checked = _run_processing_cycle()
+            # Ensure Flask app context if operations within the cycle might need it
+            # (e.g., url_for, session - not strictly needed for _run_processing_cycle here)
+            with app.app_context():
+                success, added, total, checked = _run_processing_cycle()
             if success:
-                 logging.info(f"Background processing cycle complete. Added: {added}, Total: {total}, Checked: {checked}")
+                logging.info(f"Background processing cycle complete. Added: {added}, Total: {total}, Checked: {checked}")
             else:
-                 logging.warning("Background processing cycle finished with errors (check logs above).")
+                logging.warning("Background processing cycle finished with errors (check logs above).")
 
         except Exception as e:
+            # Log the full exception traceback for debugging
             logging.exception("!!! Unhandled exception in background_processor loop: {} !!!".format(e))
-            # Avoid crashing the thread, log the error and continue
+            # Avoid crashing the thread, maybe wait longer before retrying after a major error
+            time.sleep(60) # Wait a minute before next cycle after failure
 
         logging.info(f"Background thread sleeping for {PROCESSING_INTERVAL_SECONDS} seconds.")
         time.sleep(PROCESSING_INTERVAL_SECONDS)
 
+
 # --- Flask Routes ---
+# (Flask routes remain the same)
+# ... (rest of your Flask routes) ...
 @app.route('/', methods=['GET'])
 def index():
     """Renders the HTML table page with data from the JSON file."""
     logging.info("Request received for index page ('/')")
-    backup_data = []  # <<< Initialize backup_data BEFORE the try block
+    backup_data = []
 
     try:
         with data_lock: # Acquire lock just for reading
-            # Attempt to load the data. load_data itself returns [] on error.
             loaded_data = load_data(DATA_FILE_PATH)
 
-        # Ensure loaded_data is actually a list (robustness check)
-        # If load_data worked correctly, loaded_data will be a list (possibly empty)
-        # If load_data failed internally, it already returned [], so loaded_data is []
+        # Ensure loaded_data is a list
         if isinstance(loaded_data, list):
-             backup_data = loaded_data # Assign the loaded list
+             backup_data = loaded_data
         else:
-             # This case indicates a deeper issue if load_data didn't return a list
              logging.error("Loaded data in index route was not a list! Forcing empty list.")
-             # backup_data remains [] because of the initialization above
+             # backup_data remains []
 
     except Exception as e:
-        # Catch any unexpected error during lock acquisition or the load_data call itself
         logging.exception(f"Unexpected error acquiring lock or loading data in index route: {e}")
-        # backup_data will remain [] because of the initialization above
+        # backup_data will remain []
 
-    # Now backup_data is guaranteed to be a list (possibly empty)
     item_count = len(backup_data)
-
-    # Render the external template, passing reversed items and the count
+    # Render template, passing reversed items for newest-first display
     return render_template('index.html', items=reversed(backup_data), item_count=item_count)
 
-@app.route('/process', methods=['POST']) # Keep this as POST
+
+@app.route('/process', methods=['POST'])
 def process_posts_request():
-    """
-    Manual trigger endpoint. Runs the processing cycle and returns status.
-    """
+    """Manual trigger endpoint. Runs the processing cycle and returns status."""
     logging.info("Manual processing request received via /process endpoint...")
     try:
-        with app.app_context(): # Ensure context is available
+        # Run processing cycle within app context if needed by underlying functions
+        with app.app_context():
              success, new_items, total_items, posts_checked = _run_processing_cycle()
 
         if success:
@@ -464,13 +524,13 @@ def process_posts_request():
                 "posts_checked_this_cycle": posts_checked
             }), 200
         else:
-             # Potential issue during loading or saving, _run_processing_cycle logs specifics
+             # Cycle itself logged the specific errors
              return jsonify({
                 "message": "Processing completed with errors. Check server logs.",
                 "new_items_added": new_items,
-                "total_items_in_file": total_items, # Report count before potential save failure
+                "total_items_in_file": total_items, # Report count as it was before potential save failure
                 "posts_checked_this_cycle": posts_checked
-             }), 500 # Internal Server Error status
+             }), 500 # Internal Server Error
 
     except Exception as e:
         logging.exception("Error during manual /process request: {}".format(e))
@@ -486,41 +546,52 @@ def get_data():
 
     if not isinstance(current_data, list):
         logging.error("Data loaded for /data endpoint was not a list.")
-        # Return an empty list or an error message in JSON format
         return jsonify({"error": "Failed to load data correctly", "data": []}), 500
 
-    # Return the loaded data directly as JSON
     return jsonify(current_data)
 
 # --- Main Execution ---
 if __name__ == '__main__':
-    # --- Ensure backup directory exists ---
+    # --- Ensure essential directories exist ---
+    # Directory for the data file
     backup_dir = os.path.dirname(DATA_FILE_PATH)
-    try:
-        os.makedirs(backup_dir, exist_ok=True)
-        logging.info(f"Ensured backup directory exists: {backup_dir}")
-    except Exception as e:
-        logging.error(f"Fatal: Could not create directory {backup_dir}: {e}. Exiting.")
-        exit(1)
+    if backup_dir: # Only create if DATA_FILE_PATH includes a directory part
+        try:
+            os.makedirs(backup_dir, exist_ok=True)
+            logging.info(f"Ensured data directory exists: {backup_dir}")
+        except Exception as e:
+            logging.error(f"Fatal: Could not create directory {backup_dir}: {e}. Exiting.")
+            exit(1) # Exit if we can't create the data directory
 
-    # --- Ensure templates directory exists (but don't create index.html) ---
+    # Templates directory (relative to script)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     template_dir = os.path.join(script_dir, 'templates')
-    if not os.path.exists(template_dir):
-        try:
-            os.makedirs(template_dir)
-            logging.info(f"Created missing 'templates' directory at {template_dir}. Ensure index.html is present.")
-        except Exception as e:
-            logging.warning(f"Could not create 'templates' directory: {e}. Ensure it exists manually.")
-
-    # --- Ensure static directory exists ---
     static_dir = os.path.join(script_dir, 'static')
-    if not os.path.exists(static_dir):
-        try:
-            os.makedirs(static_dir)
-            logging.info(f"Created missing 'static' directory at {static_dir}. Place style.css and 6.webp here.")
-        except Exception as e:
-            logging.warning(f"Could not create 'static' directory: {e}. Ensure it exists manually.")
+
+    try:
+        os.makedirs(template_dir, exist_ok=True)
+        logging.info(f"Ensured 'templates' directory exists at {template_dir}.")
+        # Check if index.html exists (optional but good practice)
+        if not os.path.exists(os.path.join(template_dir, 'index.html')):
+             logging.warning(f"Template file 'index.html' not found in {template_dir}. The '/' route will fail.")
+    except Exception as e:
+        logging.warning(f"Could not create/check 'templates' directory: {e}. Ensure it exists manually.")
+
+    # Static directory (relative to script)
+    try:
+        os.makedirs(static_dir, exist_ok=True)
+        logging.info(f"Ensured 'static' directory exists at {static_dir}.")
+        # Check for required static files (optional)
+        # if not os.path.exists(os.path.join(static_dir, 'style.css')):
+        #     logging.warning(f"Static file 'style.css' not found in {static_dir}.")
+        # if not os.path.exists(os.path.join(static_dir, '6.webp')):
+        #     logging.warning(f"Static file '6.webp' not found in {static_dir}.")
+    except Exception as e:
+        logging.warning(f"Could not create/check 'static' directory: {e}. Ensure it exists manually.")
+
+
+    # --- Check for required environment variables before starting threads/app ---
+    # Moved checks near the top after load_dotenv()
 
     # --- Start Background Thread ---
     processor_thread = threading.Thread(target=background_processor, name="BackgroundProcessor", daemon=True)
@@ -528,5 +599,7 @@ if __name__ == '__main__':
     logging.info("Background processing thread initiated.")
 
     # --- Run Flask App ---
-    logging.info("Starting Flask development server...")
+    logging.info("Starting Flask development server on http://127.0.0.1:5000")
+    # use_reloader=False is important when using background threads managed manually
+    # debug=False is recommended for anything beyond basic local testing
     app.run(debug=False, host='127.0.0.1', port=5000, use_reloader=False)
