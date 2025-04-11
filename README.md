@@ -3,65 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IP2Ditch Readme</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-            line-height: 1.6;
-            color: #24292e;
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 15px;
-        }
-        h1, h2, h3 {
-            border-bottom: 1px solid #eaecef;
-            padding-bottom: 0.3em;
-            margin-top: 24px;
-            margin-bottom: 16px;
-            font-weight: 600;
-        }
-        h1 { font-size: 2em; }
-        h2 { font-size: 1.5em; }
-        h3 { font-size: 1.25em; }
-        p { margin-bottom: 16px; }
-        ul, ol { padding-left: 2em; margin-bottom: 16px; }
-        li { margin-bottom: 8px; }
-        code {
-            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-            background-color: rgba(27,31,35,0.05);
-            padding: 0.2em 0.4em;
-            margin: 0;
-            font-size: 85%;
-            border-radius: 3px;
-        }
-        pre {
-            background-color: #f6f8fa;
-            border-radius: 3px;
-            font-size: 85%;
-            line-height: 1.45;
-            overflow: auto;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-        pre code {
-            background-color: transparent;
-            border: 0;
-            padding: 0;
-            margin: 0;
-            font-size: 100%;
-            line-height: inherit;
-            word-break: normal;
-        }
-        strong { font-weight: 600; }
-        a { color: #0366d6; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .warning {
-             background-color: #fffbdd;
-             border-left: 5px solid #ffea00;
-             padding: 10px;
-             margin-bottom: 15px;
-        }
-    </style>
+
 </head>
 <body>
     <h1>IP2Ditch - IP2Always Video Backup & Archiver</h1>
