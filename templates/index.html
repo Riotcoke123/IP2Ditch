@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRAP.COM</title> <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <img src="{{ url_for('static', filename='6.webp') }}" alt="Community MP4 Backup Header" class="header-image">
+
+    <div class="actions">
+        <button id="manualProcessBtn">Fetch & Process Manually</button>
+        <span id="manualStatus" style="margin-left: 10px;"></span>
+    </div>
+
+    {% if items %}
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Author</th>
+                <th>FileDitch Link</th>
+                <th>Original Link</th>
+                </tr>
+        </thead>
+        <tbody>
+            {# Loop through items directly (Python reversed it) #}
+            {% for item in items %}
+            <tr>
+                <td class="title-column">{{ item.title | default('N/A') | e }}</td> {# Added | e escape #}
+                <td class="author-column">
+                    {% if item.author %}
+                        <a href="https://communities.win/u/{{ item.author }}" target="_blank" rel="noopener noreferrer">{{ item.author | e }}</a> {# Added | e escape #}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.fileditch_link %}
+                        <a href="{{ item.fileditch_link }}" target="_blank" rel="noopener noreferrer" title="{{ item.original_link | e }}">FileDitch</a> {# Added rel, escaped title #}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.original_link %}
+                        <a href="{{ item.original_link }}" target="_blank" rel="noopener noreferrer" title="{{ item.original_link | e }}">Original</a> {# Added rel, escaped title #}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p style="text-align: center; margin-top: 15px;">Total items: {{ item_count }}</p> {# Use item_count #}
+    {% else %}
+    <p class="no-data">No data found yet. Automatic check runs every 5 minutes.</p>
+    {% endif %}
+
+<script>
+    // Optional: JavaScript for the manual trigger button
+    const manualBtn = document.getElementById('manualProcessBtn');
+    const manualStatus = document.getElementById('manualStatus');
+
+    if (manualBtn) {
+        manualBtn.addEventListener('click', () => {
+            manualStatus.textContent = 'Processing...';
+            manualStatus.style.color = 'orange';
+            manualBtn.disabled = true;
+
+            fetch('/process', { // Use POST
+                method: 'POST'
+             })
+            .then(response => {
+                if (!response.ok) {
+                    // Try to get error message from response body if possible
+                    return response.json().then(errData => {
+                         throw new Error(`HTTP error! Status: ${response.status} - ${errData.message || 'Unknown server error'}`);
+                    }).catch(() => {
+                         // If JSON parsing fails or no message, throw generic error
+                         throw new Error(`HTTP error! Status: ${response.status}`);
+                    });
+                }
+                return response.json(); // Parse successful JSON response
+            })
+            .then(data => {
+                console.log('Manual Process response:', data);
+                manualStatus.textContent = `Manual processing complete. Added ${data.new_items_added} item(s). Reloading...`;
+                manualStatus.style.color = 'green';
+                // Reload after a short delay to show the message and new data
+                setTimeout(() => window.location.reload(), 2000);
+            })
+            .catch(error => {
+                console.error('Error triggering manual process:', error);
+                manualStatus.textContent = `Error: ${error.message}.`;
+                manualStatus.style.color = 'red';
+                manualBtn.disabled = false; // Re-enable button on error
+            });
+        });
+    }
+</script>
+
+</body>
+</html>
