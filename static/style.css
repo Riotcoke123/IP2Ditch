@@ -1,0 +1,120 @@
+/* static/style.css - Modified for Dark Theme */
+
+body {
+    /* Changed: Updated font stack */
+    font-family: Arial, "helvetica neue", Helvetica, sans-serif;
+    line-height: 1.6;
+    margin: 20px;
+    background-color: #000; /* Black background */
+    color: #fff; /* White text */
+}
+
+h1 {
+    color: #fff; /* Changed: White heading text */
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background-color: #222; /* Changed: Dark background for table */
+    box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1); /* Optional: Light shadow on dark bg */
+}
+
+th, td {
+    border: 1px solid #555; /* Changed: Darker border for dark theme */
+    padding: 12px 15px; /* Increased padding */
+    text-align: left;
+    vertical-align: top; /* Align content to top */
+}
+
+/* Ensure table data text is white against dark backgrounds */
+td {
+    color: #fff;
+}
+
+
+th {
+    background-color: purple; /* Changed: Purple header */
+    color: white; /* Kept: White text for header */
+    font-weight: bold;
+}
+
+tr:nth-child(even) {
+    background-color: #333; /* Changed: Slightly different dark shade for Zebra striping */
+}
+
+tr:hover {
+    background-color: #444; /* Changed: Slightly lighter dark shade for Highlight on hover */
+}
+
+td a {
+    color: #fff; /* Changed: White link text */
+    text-decoration: none; /* Kept: No underline by default */
+    word-break: break-all; /* Break long links */
+}
+
+td a:hover {
+    text-decoration: underline; /* Kept: Underline on hover */
+    /* color: #eee; */ /* Optional: Slightly change color on hover */
+}
+
+.actions {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Button styles are okay, contrast well with dark background */
+.actions button {
+    padding: 10px 20px;
+    font-size: 16px;
+    color: white;
+    background-color: #007bff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.actions button:hover {
+    background-color: #0056b3;
+}
+
+.status {
+    text-align: center;
+    margin-top: 10px;
+    font-style: italic;
+    color: #ccc; /* Changed: Lighter gray for status text on dark bg */
+}
+
+.no-data {
+    text-align: center;
+    font-style: italic;
+    color: #aaa; /* Changed: Lighter gray for 'no data' text on dark bg */
+    margin-top: 20px;
+}
+
+/* Optional: Limit title width */
+td.title-column {
+    max-width: 300px; /* Adjust as needed */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* white-space: nowrap; /* Uncomment if you prefer single line with ellipsis */
+}
+
+td.author-column {
+    max-width: 150px;
+    word-break: break-all;
+}
+
+/* Style to center the header image */
+.header-image {
+    display: block; /* Needed to allow margin auto to work */
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 20%; /* Optional: prevent image from being too wide */
+    height: auto; /* Maintain aspect ratio */
+    margin-bottom: 20px; /* Optional: add space below the image */
+}
