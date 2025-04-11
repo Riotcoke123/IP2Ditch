@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IP2Ditch Readme</title> </head>
+  </head>
 <body>
     <h1>IP2Ditch - IP2Always Media Backup & Archiver</h1> <p>
         <strong>IP2Ditch</strong> is a Python application designed to monitor the <code>communities.win/c/IP2Always</code> community (fetching both 'new' and 'hot' posts), identify direct links to supported video (<code>.mp4</code>) and image (<code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.png</code>, <code>.webp</code>) files within posts, download these files, and subsequently upload them to <a href="https://fileditch.com/" target="_blank" rel="noopener noreferrer">FileDitch</a> for archival purposes. </p>
