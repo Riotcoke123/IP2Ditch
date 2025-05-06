@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
   </head>
 <body>
-    ![Untitled](https://github.com/user-attachments/assets/7b1b9b89-5b4f-470b-a25f-7444ea2fa3fc)
 
+  <img src="https://github.com/user-attachments/assets/203d973f-364c-436c-99d0-7f3666bfe484" 
+         alt="YouTube Anti-Viewbot Detector" width="250" height="250">
     <h1>IP2Ditch - IP2Always Media Backup & Archiver</h1> <p>
         <strong>IP2Ditch</strong> is a Python application designed to monitor the <code>communities.win/c/IP2Always</code> community (fetching both 'new' and 'hot' posts), identify direct links to supported video (<code>.mp4</code>) and image (<code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.png</code>, <code>.webp</code>) files within posts, download these files, and subsequently upload them to <a href="https://fileditch.com/" target="_blank" rel="noopener noreferrer">FileDitch</a> for archival purposes. </p>
     <p>
