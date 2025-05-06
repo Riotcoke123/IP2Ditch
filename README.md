@@ -332,6 +332,24 @@ CW_XSRF_TOKEN="YOUR_CW_XSRF_TOKEN_FROM_HEADERS_OR_COOKIES"
     <div class="note">
         <strong>Note on Communities.win Headers:</strong> The script uses a specific set of HTTP headers, including a User-Agent string, when making requests to the communities.win API. Sensitive parts of these headers (<code>x-api-key</code>, <code>x-api-secret</code>, <code>x-xsrf-token</code>) are loaded from environment variables. Ensure these are correctly set for the API requests to succeed.
     </div>
+    <h2>License</h2>
+    <p>This project is licensed under the <strong>GNU General Public License v3.0</strong>.<br>
+    You may obtain a copy of the license at <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank">https://www.gnu.org/licenses/gpl-3.0.en.html</a>.</p>
+    <pre><code>
+Copyright (C) 2025 Riotcoke123
 
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
+    </code></pre>
 </body>
 </html>
