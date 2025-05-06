@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IP2Ditch - README</title>
+
 
 </head><body>
     <img src="https://github.com/user-attachments/assets/bac0e1e1-5eba-4048-9142-22c394877122" alt="screenshot">
