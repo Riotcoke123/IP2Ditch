@@ -3,163 +3,335 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  </head>
-<body>
-  
+    <title>IP2Ditch - README</title>
 
-  <img src="https://github.com/user-attachments/assets/bac0e1e1-5eba-4048-9142-22c3948771222" 
-         alt="screenshot">
-    <h1>IP2Ditch - IP2Always Media Backup & Archiver</h1> <p>
-        <strong>IP2Ditch</strong> is a Python application designed to monitor the <code>communities.win/c/IP2Always</code> community (fetching both 'new' and 'hot' posts), identify direct links to supported video (<code>.mp4</code>) and image (<code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.png</code>, <code>.webp</code>) files within posts, download these files, and subsequently upload them to <a href="https://fileditch.com/" target="_blank" rel="noopener noreferrer">FileDitch</a> for archival purposes. </p>
-    <p>
-        It maintains a local JSON database (<code>data.json</code>) to track processed files (based on post title and author) and prevent duplicates. The application uses environment variables for secure configuration of API keys and paths. It runs a background thread for continuous, automated processing and provides a simple Flask web interface to view the list of archived media files with their original and FileDitch links. </p>
-    <h2>Key Features</h2>
+</head><body>
+    <img src="https://github.com/user-attachments/assets/bac0e1e1-5eba-4048-9142-22c394877122" alt="screenshot">
+    <h1>IP2Ditch - IP2Always Media Backup & Archiver</h1>
+    <p><strong>GitHub Repository:</strong> <a href="https://github.com/Riotcoke123/IP2Ditch">https://github.com/Riotcoke123/IP2Ditch</a></p>
+    <h2>Overview</h2>
+    <p>IP2Ditch is a Python-based web application designed to automatically fetch media (videos and images) from specified <a href="https://communities.win">communities.win</a> forums, upload them to <a href="https://fileditch.com/">Fileditch</a> for backup, and provide a simple web interface to browse the archived content. It runs a background process to periodically check for new media and can also be triggered manually.</p>
+    <h2>Features</h2>
     <ul>
-        <li>Fetches posts from <a href="https://communities.win/c/IP2Always/new" target="_blank" rel="noopener noreferrer"><code>communities.win/c/IP2Always</code></a> (New & Hot endpoints by default, configurable via environment variable).</li>
-        <li>Identifies posts containing direct links to supported media files (<code>.mp4</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.png</code>, <code>.webp</code>).</li> <li>Downloads the media file.</li> <li>Uploads the downloaded file to <a href="https://fileditch.com/" target="_blank" rel="noopener noreferrer">FileDitch</a>.</li> <li>Stores metadata (Title, Author, Original Link, FileDitch Link, Type) in <code>data.json</code>.</li> <li>Secure configuration using environment variables (or <code>.env</code> file) for API keys and secrets.</li> <li>Prevents duplicate processing of the same post (based on title/author).</li>
-        <li>Provides a web UI (Flask) served locally (default: <code>http://127.0.0.1:5000/</code>) to display archived media items.</li> <li>Runs processing automatically in a background thread at configurable intervals.</li>
-        <li>Includes a manual trigger endpoint (<code>/process</code>) via POST request.</li>
-        <li>Includes a raw data endpoint (<code>/data</code>) to get the JSON content.</li>
-        <li>Robust error handling for network requests, timeouts, JSON parsing, and file operations.</li>
-        <li>Thread-safe operations for reading/writing the data file.</li>
+        <li><strong>Automated Media Fetching:</strong> Monitors multiple communities.win API endpoints (e.g., new/hot posts from specified communities).</li>
+        <li><strong>Broad Media Support:</strong> Handles common video (<code>.mp4</code>) and image (<code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.png</code>, <code>.webp</code>) formats.</li>
+        <li><strong>Concurrent API Fetching:</strong> Uses threading to fetch data from multiple API URLs simultaneously for efficiency.</li>
+        <li><strong>Fileditch Integration:</strong> Securely backs up media to Fileditch.</li>
+        <li><strong>Local Metadata Storage:</strong> Saves information about archived posts (title, author, original link, Fileditch link, media type) in a local <code>data.json</code> file.</li>
+        <li><strong>Web Interface:</strong> A Flask-powered web UI to view the collection of archived media, displaying the newest items first.</li>
+        <li><strong>Background Processing:</strong> Continuously checks for new content at a configurable interval.</li>
+        <li><strong>Manual Trigger:</strong> Option to trigger the processing cycle via a POST request to an API endpoint.</li>
+        <li><strong>Highly Configurable:</strong> Uses environment variables for API URLs, Fileditch settings, API credentials, data storage paths, and operational parameters.</li>
+        <li><strong>Robust Logging:</strong> Detailed logging of operations, errors, and system status, including thread names and UTC timestamps.</li>
+        <li><strong>Duplicate Prevention:</strong> Avoids reprocessing and re-uploading media that has already been archived by checking post title and author.</li>
+        <li><strong>Safe File Handling:</strong> Implements atomic writes for the data file to prevent corruption.</li>
     </ul>
-    <h2>Prerequisites</h2>
+    <h2>How It Works</h2>
+    <ol>
+        <li><strong>Initialization:</strong>
+            <ul>
+                <li>Loads configuration from environment variables (API keys, URLs, etc.).</li>
+                <li>Starts a background thread for periodic processing.</li>
+                <li>Launches a Flask web server (using Waitress) to serve the UI and API endpoints.</li>
+            </ul>
+        </li>
+        <li><strong>Processing Cycle (Background or Manual):</strong>
+            <ol>
+                <li><strong>Fetch Data:</strong> Concurrently queries the configured <code>COMMUNITIES_API_URLS</code> for new posts.
+                    <ul><li>Requires valid <code>CW_API_KEY</code>, <code>CW_API_SECRET</code>, and <code>CW_XSRF_TOKEN</code> for authentication.</li></ul>
+                </li>
+                <li><strong>Filter Posts:</strong>
+                    <ul>
+                        <li>Identifies posts containing direct links to media files with supported extensions (<code>.mp4</code>, <code>.jpg</code>, etc.).</li>
+                        <li>Checks against a local list (<code>existing_post_ids</code> derived from <code>data.json</code>) to skip already processed posts (based on title and author).</li>
+                    </ul>
+                </li>
+                <li><strong>Download & Upload:</strong>
+                    <ul>
+                        <li>For each new, supported media post:
+                            <ul>
+                                <li>Downloads the media file from its original URL.</li>
+                                <li>Uploads the downloaded file to the configured <code>FILEDITCH_UPLOAD_URL</code>.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><strong>Store Metadata:</strong>
+                    <ul>
+                        <li>If the upload to Fileditch is successful, a new entry is created containing:
+                            <ul>
+                                <li>Title of the post</li>
+                                <li>Author of the post</li>
+                                <li>Fileditch link (the new backup URL)</li>
+                                <li>Original media link</li>
+                                <li>Type of media ("video" or "image")</li>
+                            </ul>
+                        </li>
+                        <li>This new entry is appended to the <code>data.json</code> file.</li>
+                    </ul>
+                </li>
+            </ol>
+        </li>
+        <li><strong>Web Interface:</strong>
+            <ul>
+                <li>The Flask application serves an <code>index.html</code> page that reads <code>data.json</code> and displays the archived items in a table, with the most recent entries shown first.</li>
+                <li>Provides direct links to the media on Fileditch.</li>
+            </ul>
+        </li>
+    </ol>
+    <h2>Setup and Running</h2>
+    <ol>
+        <li><strong>Clone the Repository:</strong>
+            <pre><code>git clone https://github.com/Riotcoke123/IP2Ditch.git
+cd IP2Ditch</code></pre>
+        </li>
+        <li><strong>Install Dependencies:</strong>
+            <p>Ensure you have Python 3.x installed. Then, install the required packages. It's recommended to use a virtual environment.</p>
+            <pre><code>python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install Flask requests python-dotenv waitress</code></pre>
+            <p>Alternatively, if a <code>requirements.txt</code> file is provided:</p>
+            <pre><code>pip install -r requirements.txt</code></pre>
+        </li>
+        <li><strong>Create <code>.env</code> File:</strong>
+            <p>Create a file named <code>.env</code> in the root directory of the project and populate it with the necessary environment variables. <strong>Sensitive credentials should never be hardcoded.</strong></p>
+            <pre><code class="language-ini"># Required Communities.win API Credentials
+CW_API_KEY="YOUR_CW_API_KEY"
+CW_API_SECRET="YOUR_CW_API_SECRET"
+CW_XSRF_TOKEN="YOUR_CW_XSRF_TOKEN_FROM_HEADERS_OR_COOKIES"
+
+# Optional: Override default API URLs (comma-separated)
+# CW_API_URLS="https://communities.win/api/v2/post/newv2.json?community=somecommunity,https://communities.win/api/v2/post/hotv2.json?community=anothercommunity"
+
+# Optional: Override default Fileditch upload URL
+# APP_FILEDITCH_URL="https://up1.fileditch.com/upload.php"
+
+# Optional: Override default data file path
+# APP_DATA_FILE_PATH="data/my_archive.json"
+
+# Optional: Server Configuration
+# APP_HOST="0.0.0.0"
+# APP_PORT="5000"
+# WAITRESS_THREADS="8"
+
+# Optional: Processing Configuration
+# PROCESSING_INTERVAL_SECONDS="120" # How often to check for new posts (in seconds)
+# REQUEST_TIMEOUT="30" # Timeout for network requests (seconds)
+# UPLOAD_TIMEOUT="300" # Timeout for file uploads (seconds)
+</code></pre>
+            <div class="critical">
+                <strong>Critical:</strong> <code>CW_API_KEY</code>, <code>CW_API_SECRET</code>, and <code>CW_XSRF_TOKEN</code> are mandatory for the application to fetch data from communities.win. The application will exit if these are not set.
+            </div>
+        </li>
+        <li><strong>Ensure Templates and Static Directories:</strong>
+            <p>The application expects an <code>index.html</code> file in a <code>templates</code> directory. The script attempts to create <code>templates</code> and <code>static</code> directories if they don't exist. Make sure your <code>templates/index.html</code> is correctly placed.
+            Example <code>templates/index.html</code> (basic structure):
+            <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;Archived Media&lt;/title&gt;
+    &lt;!-- Add styles here --&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;Archived Media ({{ item_count }} items)&lt;/h1&gt;
+    &lt;form action="/process" method="POST"&gt;
+        &lt;button type="submit"&gt;Run Processor Manually&lt;/button&gt;
+    &lt;/form&gt;
+    &lt;table border="1"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Title&lt;/th&gt;
+                &lt;th&gt;Author&lt;/th&gt;
+                &lt;th&gt;Type&lt;/th&gt;
+                &lt;th&gt;Fileditch Link&lt;/th&gt;
+                &lt;th&gt;Original Link&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            {% for item in items %}
+            &lt;tr&gt;
+                &lt;td&gt;{{ item.title }}&lt;/td&gt;
+                &lt;td&gt;{{ item.author }}&lt;/td&gt;
+                &lt;td&gt;{{ item.type }}&lt;/td&gt;
+                &lt;td&gt;&lt;a href="{{ item.fileditch_link }}" target="_blank"&gt;View on Fileditch&lt;/a&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;a href="{{ item.original_link }}" target="_blank"&gt;Original&lt;/a&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            {% else %}
+            &lt;tr&gt;&lt;td colspan="5"&gt;No items found.&lt;/td&gt;&lt;/tr&gt;
+            {% endfor %}
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+            </code></pre>
+            </p>
+        </li>
+        <li><strong>Run the Application:</strong>
+            <p>Execute the main Python script (e.g., <code>main.py</code> or the name of your script file).</p>
+            <pre><code>python your_script_name.py</code></pre>
+            <p>The application will start, initiate the background processor, and the web server will be accessible at <code>http://&lt;APP_HOST&gt;:&lt;APP_PORT&gt;</code> (e.g., <code>http://0.0.0.0:5000</code> or <code>http://localhost:5000</code>).</p>
+        </li>
+    </ol>
+    <h2>Configuration (Environment Variables)</h2>
+    <p>The application is configured using environment variables. These can be set directly in your system or placed in a <code>.env</code> file in the project's root directory (which will be loaded automatically).</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Variable Name</th>
+                <th>Description</th>
+                <th>Default Value</th>
+                <th>Required</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code class="env-var">CW_API_KEY</code></td>
+                <td>communities.win API Key.</td>
+                <td>None</td>
+                <td><strong>Yes</strong></td>
+            </tr>
+            <tr>
+                <td><code class="env-var">CW_API_SECRET</code></td>
+                <td>communities.win API Secret.</td>
+                <td>None</td>
+                <td><strong>Yes</strong></td>
+            </tr>
+            <tr>
+                <td><code class="env-var">CW_XSRF_TOKEN</code></td>
+                <td>communities.win XSRF Token. This is usually obtained from browser cookies or request headers when interacting with the site.</td>
+                <td>None</td>
+                <td><strong>Yes</strong></td>
+            </tr>
+            <tr>
+                <td><code class="env-var">CW_API_URLS</code></td>
+                <td>Comma-separated list of communities.win API URLs to fetch posts from.</td>
+                <td>
+                    <code>https://communities.win/api/v2/post/newv2.json?community=ip2always</code>,<br>
+                    <code>https://communities.win/api/v2/post/hotv2.json?community=ip2always</code>,<br>
+                    <code>https://communities.win/api/v2/post/newv2.json?community=spictank</code>,<br>
+                    <code>https://communities.win/api/v2/post/hotv2.json?community=spictank</code>,<br>
+                    <code>https://communities.win/api/v2/post/newv2.json?community=freddiebeans2</code>,<br>
+                    <code>https://communities.win/api/v2/post/hot2.json?community=freddiebeans2</code>
+                </td>
+                <td>No</td>
+            </tr>
+            <tr>
+                <td><code class="env-var">APP_FILEDITCH_URL</code></td>
+                <td>The upload URL for Fileditch.</td>
+                <td><code>https://up1.fileditch.com/upload.php</code></td>
+                <td>No</td>
+            </tr>
+            <tr>
+                <td><code class="env-var">APP_DATA_FILE_PATH</code></td>
+                <td>Path to the JSON file where archived media metadata is stored. The directory will be created if it doesn't exist.</td>
+                <td><code>data.json</code> (relative to script location)</td>
+                <td>No</td>
+            </tr>
+            <tr>
+                <td><code class="env-var">APP_HOST</code></td>
+                <td>Host address for the Flask application to listen on.</td>
+                <td><code>0.0.0.0</code></td>
+                <td>No</td>
+            </tr>
+            <tr>
+                <td><code class="env-var">APP_PORT</code></td>
+                <td>Port number for the Flask application.</td>
+                <td><code>5000</code></td>
+                <td>No</td>
+            </tr>
+            <tr>
+                <td><code class="env-var">WAITRESS_THREADS</code></td>
+                <td>Number of worker threads for the Waitress WSGI server.</td>
+                <td><code>8</code></td>
+                <td>No</td>
+            </tr>
+            <tr>
+                <td><code class="env-var">PROCESSING_INTERVAL_SECONDS</code></td>
+                <td>Interval in seconds for the background processing thread to fetch and process new posts.</td>
+                <td><code>120</code> (2 minutes)</td>
+                <td>No</td>
+            </tr>
+            <tr>
+                <td><code class="env-var">REQUEST_TIMEOUT</code></td>
+                <td>Timeout in seconds for general network requests (fetching API data, downloading files).</td>
+                <td><code>30</code></td>
+                <td>No</td>
+            </tr>
+            <tr>
+                <td><code class="env-var">UPLOAD_TIMEOUT</code></td>
+                <td>Timeout in seconds for uploading files to Fileditch.</td>
+                <td><code>300</code> (5 minutes)</td>
+                <td>No</td>
+            </tr>
+        </tbody>
+    </table>
+    <h2>API Endpoints</h2>
+    <ul>
+        <li><strong><code>GET /</code></strong>
+            <ul>
+                <li><strong>Description:</strong> Displays the main HTML page with a table of archived media.</li>
+                <li><strong>Response:</strong> HTML page.</li>
+            </ul>
+        </li>
+        <li><strong><code>POST /process</code></strong>
+            <ul>
+                <li><strong>Description:</strong> Manually triggers one full processing cycle (fetch, download, upload, save).</li>
+                <li><strong>Response:</strong> JSON object indicating the outcome of the processing.
+                    <pre><code>{
+    "message": "Processing complete.",
+    "new_items_added": 2,
+    "total_items_in_file": 10,
+    "posts_checked_this_cycle": 50
+}</code></pre>
+                </li>
+            </ul>
+        </li>
+        <li><strong><code>GET /data</code></strong>
+            <ul>
+                <li><strong>Description:</strong> Returns the raw JSON data of all archived items.</li>
+                <li><strong>Response:</strong> JSON array of archived media objects.
+                    <pre><code>[
+    {
+        "title": "Cool Video Title",
+        "author": "User123",
+        "fileditch_link": "https://fileditch.com/...",
+        "original_link": "https://example.com/video.mp4",
+        "type": "video"
+    },
+    ...
+]</code></pre>
+                </li>
+            </ul>
+        </li>
+    </ul>
+    <h2>Dependencies</h2>
     <ul>
         <li>Python 3.x</li>
-        <li><code>pip</code> (Python package installer)</li>
+        <li>Flask</li>
+        <li>Requests</li>
+        <li>python-dotenv</li>
+        <li>Waitress</li>
+        <li><code>concurrent.futures</code> (Standard Python library)</li>
+        <li><code>mimetypes</code> (Standard Python library)</li>
     </ul>
-    <h2>Installation & Setup</h2>
-    <ol>
-        <li>
-            <strong>Clone the repository (if you haven't already):</strong>
-            <pre><code>git clone https://github.com/Riotcoke123/IP2Ditch.git</code></pre>
-        </li>
-        <li>
-            <strong>Navigate into the directory:</strong>
-            <pre><code>cd IP2Ditch</code></pre>
-        </li>
-        <li>
-            <strong>(Recommended) Create and activate a virtual environment:</strong>
-            <pre><code>python -m venv venv
-# On Windows
-.\venv\Scripts\activate
-# On macOS/Linux
-source venv/bin/activate</code></pre>
-        </li>
-        <li>
-            <strong>Install required Python libraries:</strong>
-            <pre><code>pip install Flask requests python-dotenv</code></pre> <p><em>(Note: The script also uses standard libraries like <code>os</code>, <code>json</code>, <code>logging</code>, <code>datetime</code>, <code>re</code>, <code>time</code>, <code>threading</code>, <code>mimetypes</code>, and <code>urllib.parse</code>, which are built into Python.)</em></p> </li>
-        <li>
-             <strong>Configure Environment Variables (IMPORTANT):</strong> <p>This application requires API credentials and configuration settings to be set via environment variables. The recommended way is to create a <code>.env</code> file in the root directory of the project (<code>IP2Ditch/</code>). Alternatively, set them directly in your system's environment.</p>
-             <p>Create a file named <code>.env</code> with the following content, replacing placeholder values with your actual credentials:</p>
-             <pre><code># Required Communities.Win Credentials
-CW_API_KEY=your_communities_win_api_key
-CW_API_SECRET=your_communities_win_api_secret
-CW_XSRF_TOKEN=your_communities_win_xsrf_token
-
-# Required Path to Data File (use forward slashes even on Windows)
-# Example: Store 'data.json' in a 'backup' subdirectory relative to the script
-APP_DATA_FILE_PATH=./backup/data.json
-# Example: Store 'data.json' at an absolute path (Windows)
-# APP_DATA_FILE_PATH=C:/Users/YourUser/Documents/IP2DitchBackup/data.json
-# Example: Store 'data.json' at an absolute path (Linux/macOS)
-# APP_DATA_FILE_PATH=/home/youruser/ip2ditch_backup/data.json
-
-# Optional: Comma-separated list of API URLs to fetch (defaults shown)
-# CW_API_URLS=https://communities.win/api/v2/post/newv2.json?community=ip2always,https://communities.win/api/v2/post/hotv2.json?community=ip2always
-
-# Optional: FileDitch Upload URL (defaults shown)
-# APP_FILEDITCH_URL=https://up1.fileditch.com/upload.php
-</code></pre>
-             <p><strong>Notes:</strong></p>
-             <ul>
-               <li>Make sure the <strong>directory</strong> specified in <code>APP_DATA_FILE_PATH</code> (e.g., <code>./backup/</code> or <code>C:/Users/YourUser/Documents/IP2DitchBackup/</code>) exists, or the script has permission to create it.</li>
-               <li>Add <code>.env</code> to your <code>.gitignore</code> file to prevent accidentally committing secrets.</li>
-               <li>The script will exit on startup if the required variables (<code>CW_API_KEY</code>, <code>CW_API_SECRET</code>, <code>CW_XSRF_TOKEN</code>) are not found in the environment or the <code>.env</code> file.</li>
-             </ul>
-         </li>
-         <li>
-            <strong>Create necessary directories:</strong>
-            <p>Ensure you have <code>templates</code> and <code>static</code> directories in the same location as your script (<code>app.py</code>):</p>
-            <pre><code>mkdir templates
-mkdir static</code></pre>
-            <p>Also ensure the directory for your <code>data.json</code> file exists (as configured in <code>APP_DATA_FILE_PATH</code> in your <code>.env</code> file, e.g., <code>mkdir backup</code> if using the default relative path).</p>
-        </li>
-        <li>
-            <strong>Place Web Files:</strong>
-             <ul>
-                <li>Place your <code>index.html</code> file inside the <code>templates</code> directory.</li>
-                <li>Place any static assets like <code>style.css</code> or images inside the <code>static</code> directory.</li>
-             </ul>
-        </li>
-    </ol>
-    <h2>Configuration via Environment Variables</h2> <p>The application's behavior is controlled via environment variables (preferably set in a <code>.env</code> file):</p>
+    <h2>Logging</h2>
+    <p>The application employs Python's built-in <code>logging</code> module. Logs are output to standard output.</p>
     <ul>
-        <li><code>CW_API_KEY</code> (Required): Your API key for communities.win.</li>
-        <li><code>CW_API_SECRET</code> (Required): Your API secret for communities.win.</li>
-        <li><code>CW_XSRF_TOKEN</code> (Required): Your XSRF token for communities.win requests (may need updating periodically).</li>
-        <li><code>APP_DATA_FILE_PATH</code> (Required): The full or relative path where the <code>data.json</code> file will be stored. Ensure the parent directory exists or is creatable. (Default if not set: <code>./backup/data.json</code>)</li>
-        <li><code>CW_API_URLS</code> (Optional): A comma-separated string of communities.win API endpoints to fetch posts from. (Default: Fetches new and hot posts from <code>IP2Always</code> community).</li>
-        <li><code>APP_FILEDITCH_URL</code> (Optional): The target URL for FileDitch uploads. (Default: <code>https://up1.fileditch.com/upload.php</code>)</li>
-        <li><code>REQUEST_TIMEOUT</code> (Hardcoded): Timeout in seconds for network requests (fetching API data, downloading files). Default: 30.</li>
-        <li><code>UPLOAD_TIMEOUT</code> (Hardcoded): Timeout in seconds specifically for uploading files to FileDitch. Default: 300.</li>
-        <li><code>PROCESSING_INTERVAL_SECONDS</code> (Hardcoded): How often (in seconds) the background thread runs the processing cycle. Default: 300 (5 minutes).</li>
+        <li><strong>Format:</strong> <code>YYYY-MM-DDTHH:MM:SSZ - LEVELNAME - [ThreadName] - Message</code></li>
+        <li><strong>Timestamp:</strong> UTC.</li>
+        <li><strong>Level:</strong> Primarily INFO, with DEBUG for more verbose output, WARNING for recoverable issues, ERROR for significant problems, and CRITICAL for fatal errors (like missing essential configs).</li>
     </ul>
-    <p><em>Note: Timeouts and processing interval are currently hardcoded in <code>app.py</code> but could be converted to environment variables if further customization is needed.</em></p>
-    <h2>Usage</h2>
-    <ol>
-        <li>
-            <strong>Run the application:</strong>
-            <pre><code>python app.py</code></pre>
-            <em>(Ensure your virtual environment is active if you created one)</em>
-        </li>
-        <li>
-            <strong>Access the Web Interface:</strong>
-            <p>Open your web browser and navigate to:</p>
-            <pre><code>http://127.0.0.1:5000/</code></pre>
-            <p>This will display the table of archived media files.</p> </li>
-         <li>
-            <strong>Background Processing:</strong>
-            <p>The script automatically starts a background thread that fetches, downloads, and uploads new supported media files every <code>PROCESSING_INTERVAL_SECONDS</code> (default: 5 minutes).</p> </li>
-        <li>
-            <strong>Manual Trigger:</strong>
-            <p>To force an immediate processing cycle, send a POST request to the <code>/process</code> endpoint. You can use tools like <code>curl</code>:</p>
-            <pre><code>curl -X POST http://127.0.0.1:5000/process</code></pre>
-            <p>The response will indicate the outcome of the processing cycle.</p>
-        </li>
-        <li>
-            <strong>Access Raw Data:</strong>
-            <p>To get the raw JSON data stored in <code>data.json</code>, navigate to:</p>
-            <pre><code>http://127.0.0.1:5000/data</code></pre>
-        </li>
-        <li>
-            <strong>Stopping the Application:</strong> Press <code>Ctrl + C</code> in the terminal where the script is running.
-        </li>
-    </ol>
-    <h2>File Structure</h2>
-    <pre><code>IP2Ditch/
-├── app.py             # Main Python script
-├── .env               # Environment variables (API keys, paths - DO NOT COMMIT) <-- Added
-├── data.json          # Stores archived media data (created automatically in path defined by APP_DATA_FILE_PATH) <-- Updated description
-├── templates/
-│   └── index.html     # HTML template for the web UI
-├── static/
-│   ├── style.css      # Optional: CSS styling for index.html
-│   └── ...            # Other static assets (images, etc.)
-├── venv/              # Virtual environment directory (if used)
-└── README.md          # This file (in HTML format)
-</code></pre>
-    <h2>Limitations & Potential Issues</h2>
+    <p>Check the console output where the script is running to monitor its activity and troubleshoot issues.</p>
+    <h2>Error Handling and Resilience</h2>
     <ul>
-        <li><strong>API Key/Token Expiry:</strong> The API credentials loaded from environment variables may expire or be invalidated, causing API requests to fail (check for 401/403 errors in logs). The XSRF token is particularly likely to change.</li> <li><strong>Rate Limiting:</strong> Frequent requests might hit rate limits imposed by <code>communities.win</code> or <code>FileDitch</code>.</li>
-        <li><strong>API Changes:</strong> Changes to the <code>communities.win</code> API structure or the <code>FileDitch</code> upload process/response format could break the script.</li>
-        <li><strong>Resource Consumption:</strong> Downloading and uploading numerous large media files can consume significant bandwidth, disk space (temporarily during download), and CPU time.</li> <li><strong>Error Handling:</strong> While efforts have been made to handle common errors, edge cases might still exist. Check logs for details on failures.</li>
-        <li><strong>Content Policies:</strong> Users are responsible for ensuring their use of this script complies with the terms of service of both <code>communities.win</code> and <code>FileDitch</code>.</li>
+        <li><strong>Network Issues:</strong> Timeouts and request exceptions are caught for API fetching, file downloading, and uploading. The application will log the error and typically skip the problematic item or API, continuing with others.</li>
+        <li><strong>API Errors:</strong> HTTP errors (like 401/403 for bad credentials or 404 for not found) from communities.win or Fileditch are logged. Specific warnings are issued for credential-related errors.</li>
+        <li><strong>Data File:</strong> Uses an atomic write process (save to a temporary file then replace) to minimize data corruption in <code>data.json</code> during saves. If the data file is missing, empty, or malformed, it starts with an empty list.</li>
+        <li><strong>Background Thread:</strong> The main loop of the background processing thread is wrapped in a try-except block to catch unexpected errors and log them, preventing the thread from crashing silently.</li>
     </ul>
-    <h2>License</h2>
-    <p>
-    GNU GENERAL PUBLIC LICENSE
-    </p>
+    <div class="note">
+        <strong>Note on Communities.win Headers:</strong> The script uses a specific set of HTTP headers, including a User-Agent string, when making requests to the communities.win API. Sensitive parts of these headers (<code>x-api-key</code>, <code>x-api-secret</code>, <code>x-xsrf-token</code>) are loaded from environment variables. Ensure these are correctly set for the API requests to succeed.
+    </div>
 
 </body>
 </html>
